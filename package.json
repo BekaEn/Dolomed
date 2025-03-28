@@ -1,0 +1,26 @@
+{
+  "name": "praxis-automation",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:report": "playwright test && npx playwright show-report",
+    "report:open": "npx playwright show-report",
+    "report:custom": "node -r ts-node/register src/utils/customReporter.ts",
+    "open-report": "npx http-server test-results -o /custom-report.html --port 8080 --host localhost"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@playwright/test": "^1.51.0",
+    "@types/node": "^22.13.9",
+    "@types/pngjs": "^6.0.5",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0"
+  },
+  "dependencies": {
+    "canvas": "^3.1.0"
+  }
+}
