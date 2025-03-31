@@ -57,9 +57,9 @@ export default defineConfig({
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 0 : 0,
   /* Opt out of parallel tests on CI. */
-  workers: isCI ? 1 : 2,  // Use fewer workers in CI for stability
+  workers: isCI ? 5 : 5,  // Use fewer workers in CI for stability
   
   /* Enhanced Reporter Configuration */
   reporter: isCI 
