@@ -4,12 +4,37 @@ pipeline {
     environment {
         NODE_VERSION = '18'
         PLAYWRIGHT_BROWSERS_PATH = '0'
+        GIT_SSL_NO_VERIFY = 'true'  // If using self-signed certificates
+    }
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        retry(3)  // Retry the entire pipeline up to 3 times
     }
 
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
+                retry(3) {  // Retry checkout up to 3 times
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        userRemoteConfigs: [[
+                            credentialsId: 'git-credentials',  // Your Git credentials ID
+                            url: 'YOUR_REPOSITORY_URL'
+                        ]],
+                        extensions: [
+                            [$class: 'CleanBeforeCheckout'],
+                            [$class: 'CloneOption', 
+                             timeout: 10,
+                             shallow: true,
+                             noTags: true,
+                             reference: ''
+                            ],
+                            [$class: 'LocalBranch', localBranch: 'main']
+                        ]
+                    ])
+                }
             }
         }
 
@@ -63,6 +88,9 @@ pipeline {
     post {
         always {
             cleanWs()
+        }
+        failure {
+            echo 'Pipeline failed. Check the logs for details.'
         }
     }
 } 
