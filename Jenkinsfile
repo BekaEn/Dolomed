@@ -7,6 +7,7 @@ pipeline {
         GIT_SSL_NO_VERIFY = 'true'
         GIT_USERNAME = 'BekaEn'
         GIT_PASSWORD = credentials('github-credentials')
+        PATH = "/opt/homebrew/bin:${env.PATH}"  # Add Homebrew to PATH
     }
 
     options {
@@ -18,11 +19,15 @@ pipeline {
         stage('Setup Environment') {
             steps {
                 sh '''
-                    # Install Git LFS
-                    brew install git-lfs || true
+                    # Install Git LFS using Homebrew
+                    /opt/homebrew/bin/brew install git-lfs || true
+                    
+                    # Verify Git LFS installation
+                    which git-lfs
+                    git-lfs version
                     
                     # Initialize Git LFS
-                    git lfs install || true
+                    git-lfs install || true
                     
                     # Configure Git LFS
                     git config --global filter.lfs.clean "git-lfs clean -- %f"
@@ -35,8 +40,9 @@ pipeline {
                     git config --global credential.helper store
                     echo "https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com" > ~/.git-credentials
                     
-                    # Verify Git LFS installation
-                    git lfs version || echo "Git LFS not installed"
+                    # Verify Git LFS is in PATH
+                    echo $PATH
+                    which git-lfs
                 '''
             }
         }
