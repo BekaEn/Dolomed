@@ -5,7 +5,6 @@ pipeline {
         NODE_VERSION = '18'
         PLAYWRIGHT_BROWSERS_PATH = '0'
         GIT_SSL_NO_VERIFY = 'true'  // If using self-signed certificates
-        GIT_LFS_SKIP_SMUDGE = '1'  // Skip LFS smudge during checkout
     }
 
     options {
@@ -14,21 +13,6 @@ pipeline {
     }
 
     stages {
-        stage('Setup Git LFS') {
-            steps {
-                sh '''
-                    # Install Git LFS using Homebrew
-                    brew install git-lfs || true
-                    
-                    # Verify Git LFS installation
-                    git lfs version || echo "Git LFS not installed"
-                    
-                    # Initialize Git LFS
-                    git lfs install || true
-                '''
-            }
-        }
-
         stage('Checkout') {
             steps {
                 retry(3) {
@@ -47,21 +31,30 @@ pipeline {
                              noTags: true,
                              reference: ''
                             ],
-                            [$class: 'LocalBranch', localBranch: 'main']
+                            [$class: 'LocalBranch', localBranch: 'main'],
+                            [$class: 'DisableRemotePoll']
                         ]
                     ])
                 }
             }
         }
 
-        stage('Pull Git LFS') {
+        stage('Setup Git LFS') {
             steps {
                 sh '''
-                    # Pull LFS files
-                    git lfs pull || echo "Git LFS pull failed"
+                    # Install Git LFS
+                    brew install git-lfs || true
                     
-                    # List LFS files
-                    git lfs ls-files || echo "No LFS files found"
+                    # Initialize Git LFS
+                    git lfs install || true
+                    
+                    # Configure Git LFS
+                    git config --global filter.lfs.required false
+                    git config --global filter.lfs.smudge "git-lfs smudge --skip -- %f"
+                    git config --global filter.lfs.clean "git-lfs clean -- %f"
+                    
+                    # Pull LFS files
+                    git lfs pull || true
                 '''
             }
         }
