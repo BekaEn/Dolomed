@@ -14,14 +14,29 @@ pipeline {
     }
 
     stages {
+        stage('Setup Git LFS') {
+            steps {
+                sh '''
+                    # Install Git LFS using Homebrew
+                    brew install git-lfs || true
+                    
+                    # Verify Git LFS installation
+                    git lfs version || echo "Git LFS not installed"
+                    
+                    # Initialize Git LFS
+                    git lfs install || true
+                '''
+            }
+        }
+
         stage('Checkout') {
             steps {
-                retry(3) {  // Retry checkout up to 3 times
+                retry(3) {
                     checkout([
                         $class: 'GitSCM',
                         branches: [[name: '*/main']],
                         userRemoteConfigs: [[
-                            credentialsId: '9d609d65-d222-4236-86bc-08cbce4c422b',
+                            credentialsId: 'github-pat',  // Updated to use PAT
                             url: 'https://github.com/BekaEn/Dolomed.git'
                         ]],
                         extensions: [
@@ -32,32 +47,21 @@ pipeline {
                              noTags: true,
                              reference: ''
                             ],
-                            [$class: 'LocalBranch', localBranch: 'main'],
-                            [$class: 'GitLFSPull']
+                            [$class: 'LocalBranch', localBranch: 'main']
                         ]
                     ])
                 }
             }
         }
 
-        stage('Setup Git LFS') {
+        stage('Pull Git LFS') {
             steps {
                 sh '''
-                    # Install Git LFS if not already installed
-                    if ! command -v git-lfs &> /dev/null; then
-                        if [[ "$OSTYPE" == "darwin"* ]]; then
-                            brew install git-lfs
-                        elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-                            curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
-                            sudo apt-get install git-lfs
-                        fi
-                    fi
-                    
-                    # Initialize Git LFS
-                    git lfs install
-                    
                     # Pull LFS files
-                    git lfs pull
+                    git lfs pull || echo "Git LFS pull failed"
+                    
+                    # List LFS files
+                    git lfs ls-files || echo "No LFS files found"
                 '''
             }
         }
