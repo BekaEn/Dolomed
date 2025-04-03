@@ -7,7 +7,7 @@ pipeline {
         GIT_SSL_NO_VERIFY = 'true'
         GIT_USERNAME = 'BekaEn'
         GIT_PASSWORD = credentials('github-credentials')
-        PATH = "/opt/homebrew/bin:${env.PATH}"  # Add Homebrew to PATH
+        PATH = "/opt/homebrew/bin:${env.PATH}"
     }
 
     options {
