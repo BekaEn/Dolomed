@@ -5,6 +5,7 @@ pipeline {
         NODE_VERSION = '18'
         PLAYWRIGHT_BROWSERS_PATH = '0'
         GIT_SSL_NO_VERIFY = 'true'  // If using self-signed certificates
+        GIT_LFS_SKIP_SMUDGE = '1'  // Skip LFS smudge during checkout
     }
 
     options {
@@ -20,8 +21,8 @@ pipeline {
                         $class: 'GitSCM',
                         branches: [[name: '*/main']],
                         userRemoteConfigs: [[
-                            credentialsId: 'git-credentials',  // Your Git credentials ID
-                            url: 'YOUR_REPOSITORY_URL'
+                            credentialsId: '9d609d65-d222-4236-86bc-08cbce4c422b',
+                            url: 'https://github.com/BekaEn/Dolomed.git'
                         ]],
                         extensions: [
                             [$class: 'CleanBeforeCheckout'],
@@ -31,10 +32,33 @@ pipeline {
                              noTags: true,
                              reference: ''
                             ],
-                            [$class: 'LocalBranch', localBranch: 'main']
+                            [$class: 'LocalBranch', localBranch: 'main'],
+                            [$class: 'GitLFSPull']
                         ]
                     ])
                 }
+            }
+        }
+
+        stage('Setup Git LFS') {
+            steps {
+                sh '''
+                    # Install Git LFS if not already installed
+                    if ! command -v git-lfs &> /dev/null; then
+                        if [[ "$OSTYPE" == "darwin"* ]]; then
+                            brew install git-lfs
+                        elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+                            curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+                            sudo apt-get install git-lfs
+                        fi
+                    fi
+                    
+                    # Initialize Git LFS
+                    git lfs install
+                    
+                    # Pull LFS files
+                    git lfs pull
+                '''
             }
         }
 
