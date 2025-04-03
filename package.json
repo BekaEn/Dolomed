@@ -8,7 +8,9 @@
     "report:open": "npx playwright show-report",
     "report:custom": "node -r ts-node/register src/utils/customReporter.ts",
     "open-report": "npx http-server test-results -o /custom-report.html --port 8080 --host localhost",
-    "test:failed": "node scripts/run-failed-tests.js"
+    "test:failed": "node scripts/run-failed-tests.js",
+    "install:ci": "npm ci && npx playwright install --with-deps",
+    "test:ci": "playwright test --reporter=junit,html"
   },
   "keywords": [],
   "author": "",
