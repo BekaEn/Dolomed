@@ -4,15 +4,43 @@ pipeline {
     environment {
         NODE_VERSION = '18'
         PLAYWRIGHT_BROWSERS_PATH = '0'
-        GIT_SSL_NO_VERIFY = 'true'  // If using self-signed certificates
+        GIT_SSL_NO_VERIFY = 'true'
+        GIT_USERNAME = 'BekaEn'
+        GIT_PASSWORD = credentials('github-credentials')
     }
 
     options {
         timeout(time: 30, unit: 'MINUTES')
-        retry(3)  // Retry the entire pipeline up to 3 times
+        retry(3)
     }
 
     stages {
+        stage('Setup Environment') {
+            steps {
+                sh '''
+                    # Install Git LFS
+                    brew install git-lfs || true
+                    
+                    # Initialize Git LFS
+                    git lfs install || true
+                    
+                    # Configure Git LFS
+                    git config --global filter.lfs.clean "git-lfs clean -- %f"
+                    git config --global filter.lfs.smudge "git-lfs smudge -- %f"
+                    git config --global filter.lfs.process "git-lfs filter-process"
+                    git config --global filter.lfs.required true
+                    
+                    # Configure Git credentials
+                    git config --global user.name "${GIT_USERNAME}"
+                    git config --global credential.helper store
+                    echo "https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com" > ~/.git-credentials
+                    
+                    # Verify Git LFS installation
+                    git lfs version || echo "Git LFS not installed"
+                '''
+            }
+        }
+
         stage('Checkout') {
             steps {
                 retry(3) {
@@ -20,7 +48,6 @@ pipeline {
                         $class: 'GitSCM',
                         branches: [[name: '*/main']],
                         userRemoteConfigs: [[
-                            credentialsId: 'github-pat',  // Updated to use PAT
                             url: 'https://github.com/BekaEn/Dolomed.git'
                         ]],
                         extensions: [
@@ -36,26 +63,6 @@ pipeline {
                         ]
                     ])
                 }
-            }
-        }
-
-        stage('Setup Git LFS') {
-            steps {
-                sh '''
-                    # Install Git LFS
-                    brew install git-lfs || true
-                    
-                    # Initialize Git LFS
-                    git lfs install || true
-                    
-                    # Configure Git LFS
-                    git config --global filter.lfs.required false
-                    git config --global filter.lfs.smudge "git-lfs smudge --skip -- %f"
-                    git config --global filter.lfs.clean "git-lfs clean -- %f"
-                    
-                    # Pull LFS files
-                    git lfs pull || true
-                '''
             }
         }
 
