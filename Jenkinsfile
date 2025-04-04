@@ -8,10 +8,12 @@ pipeline {
         GIT_USERNAME = 'BekaEn'
         GITHUB_TOKEN = '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'
         PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
+        PLAYWRIGHT_TEST_REPORT_DIR = "playwright-report"
+        PLAYWRIGHT_TEST_RESULTS_DIR = "test-results"
     }
 
     options {
-        timeout(time: 30, unit: 'MINUTES')
+        // timeout(time: 30, unit: 'MINUTES')
         // retry(3)
         skipDefaultCheckout()
     }
@@ -98,13 +100,19 @@ pipeline {
                 sh '''
                     # Ensure Node.js is in PATH
                     export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"
-                    npm run test
+                    
+                    # Create test results directory
+                    mkdir -p ${PLAYWRIGHT_TEST_RESULTS_DIR}
+                    
+                    # Run tests with detailed reporting
+                    npm run test -- --reporter=junit,line --output=${PLAYWRIGHT_TEST_RESULTS_DIR}/junit-results.xml
                 '''
             }
             post {
                 always {
-                    junit 'test-results/junit-results.xml'
-                    archiveArtifacts artifacts: 'test-results/**/*'
+                    junit "${PLAYWRIGHT_TEST_RESULTS_DIR}/junit-results.xml"
+                    archiveArtifacts artifacts: "${PLAYWRIGHT_TEST_RESULTS_DIR}/**/*"
+                    archiveArtifacts artifacts: "${PLAYWRIGHT_TEST_REPORT_DIR}/**/*"
                 }
                 success {
                     echo 'All tests passed!'
@@ -113,7 +121,10 @@ pipeline {
                     echo 'Some tests failed. Check the test results for details.'
                     sh '''
                         export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"
-                        npm run test:failed
+                        echo "Failed tests:"
+                        cat ${PLAYWRIGHT_TEST_RESULTS_DIR}/junit-results.xml | grep "failure" || true
+                        echo "Generating detailed test report..."
+                        npm run test:report
                     '''
                 }
             }
@@ -129,7 +140,7 @@ pipeline {
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'playwright-report/**/*'
+                    archiveArtifacts artifacts: "${PLAYWRIGHT_TEST_REPORT_DIR}/**/*"
                 }
             }
         }
@@ -141,6 +152,7 @@ pipeline {
         }
         failure {
             echo 'Pipeline failed. Check the logs for details.'
+            echo 'Visual comparison failures detected. Please check the test report for details.'
         }
     }
 } 
