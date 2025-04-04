@@ -6,28 +6,29 @@ pipeline {
         PLAYWRIGHT_BROWSERS_PATH = '0'
         GIT_SSL_NO_VERIFY = 'true'
         GIT_USERNAME = 'BekaEn'
-        GIT_PASSWORD = credentials('github-credentials')
-        PATH = "/opt/homebrew/bin:${env.PATH}"
+        GITHUB_TOKEN = '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'
+        PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
     }
 
     options {
         timeout(time: 30, unit: 'MINUTES')
-        retry(3)
+        // retry(3)
+        skipDefaultCheckout()
     }
 
     stages {
-        stage('Setup Environment') {
+        stage('Setup Git LFS') {
             steps {
                 sh '''
                     # Install Git LFS using Homebrew
-                    /opt/homebrew/bin/brew install git-lfs || true
+                    /opt/homebrew/bin/brew install git-lfs
                     
                     # Verify Git LFS installation
                     which git-lfs
                     git-lfs version
                     
                     # Initialize Git LFS
-                    git-lfs install || true
+                    git-lfs install
                     
                     # Configure Git LFS
                     git config --global filter.lfs.clean "git-lfs clean -- %f"
@@ -38,11 +39,7 @@ pipeline {
                     # Configure Git credentials
                     git config --global user.name "${GIT_USERNAME}"
                     git config --global credential.helper store
-                    echo "https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com" > ~/.git-credentials
-                    
-                    # Verify Git LFS is in PATH
-                    echo $PATH
-                    which git-lfs
+                    echo "https://${GIT_USERNAME}:${GITHUB_TOKEN}@github.com" > ~/.git-credentials
                 '''
             }
         }
@@ -50,47 +47,59 @@ pipeline {
         stage('Checkout') {
             steps {
                 retry(3) {
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: '*/main']],
-                        userRemoteConfigs: [[
-                            url: 'https://github.com/BekaEn/Dolomed.git'
-                        ]],
-                        extensions: [
-                            [$class: 'CleanBeforeCheckout'],
-                            [$class: 'CloneOption', 
-                             timeout: 10,
-                             shallow: true,
-                             noTags: true,
-                             reference: ''
-                            ],
-                            [$class: 'LocalBranch', localBranch: 'main'],
-                            [$class: 'DisableRemotePoll']
-                        ]
-                    ])
+                    sh '''
+                        # Clone the repository using HTTPS with token
+                        git clone "https://${GIT_USERNAME}:${GITHUB_TOKEN}@github.com/BekaEn/Dolomed.git" .
+                        
+                        # Initialize Git LFS in the repository
+                        git lfs install
+                        
+                        # Pull LFS files
+                        git lfs pull
+                    '''
                 }
             }
         }
 
         stage('Setup Node.js') {
             steps {
-                nodejs(nodeJSInstallationName: 'NodeJS-${NODE_VERSION}') {
-                    sh 'node --version'
-                    sh 'npm --version'
-                }
+                sh '''
+                    # Install Node.js using Homebrew
+                    /opt/homebrew/bin/brew install node@${NODE_VERSION}
+                    
+                    # Add Node.js to PATH
+                    echo 'export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"' >> ~/.bash_profile
+                    source ~/.bash_profile
+                    
+                    # Verify Node.js installation
+                    node --version
+                    npm --version
+                '''
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm ci'
-                sh 'npx playwright install --with-deps'
+                sh '''
+                    # Ensure Node.js is in PATH
+                    export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"
+                    
+                    # Install dependencies
+                    npm install
+                    
+                    # Install Playwright browsers
+                    npx playwright install --with-deps
+                '''
             }
         }
 
         stage('Run Tests') {
             steps {
-                sh 'npm run test'
+                sh '''
+                    # Ensure Node.js is in PATH
+                    export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"
+                    npm run test
+                '''
             }
             post {
                 always {
@@ -102,14 +111,21 @@ pipeline {
                 }
                 failure {
                     echo 'Some tests failed. Check the test results for details.'
-                    sh 'npm run test:failed'
+                    sh '''
+                        export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"
+                        npm run test:failed
+                    '''
                 }
             }
         }
 
         stage('Generate Report') {
             steps {
-                sh 'npm run test:report'
+                sh '''
+                    # Ensure Node.js is in PATH
+                    export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"
+                    npm run test:report
+                '''
             }
             post {
                 always {
