@@ -52,7 +52,7 @@ pipeline {
                 // retry(3) {
                     sh '''
                         # Clone the repository using HTTPS with token
-                        git clone "https://${GIT_USERNAME}:${GITHUB_TOKEN}@github.com/BekaEn/Levatus.git" .
+                        git clone "https://${GIT_USERNAME}:${GITHUB_TOKEN}@github.com/BekaEn/Dolomed.git" .
                         
                         # Initialize Git LFS in the repository
                         git lfs install
