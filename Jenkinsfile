@@ -10,6 +10,8 @@ pipeline {
         PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
         PLAYWRIGHT_TEST_REPORT_DIR = "playwright-report"
         PLAYWRIGHT_TEST_RESULTS_DIR = "test-results"
+        EMAIL_RECIPIENTS = 'enuqidzebeqa@gmail.com'
+        ALLURE_RESULTS_DIR = "allure-results"
     }
 
     options {
@@ -18,18 +20,17 @@ pipeline {
         skipDefaultCheckout()
     }
 
+    tools {
+        allure 'Allure'
+    }
+
     stages {
         stage('Setup Git LFS') {
             steps {
                 sh '''
-                    # Install Git LFS using Homebrew
                     /opt/homebrew/bin/brew install git-lfs
-                    
-                    # Verify Git LFS installation
                     which git-lfs
                     git-lfs version
-                    
-                    # Initialize Git LFS
                     git-lfs install
                     
                     # Configure Git LFS
@@ -48,10 +49,10 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                retry(3) {
+                // retry(3) {
                     sh '''
                         # Clone the repository using HTTPS with token
-                        git clone "https://${GIT_USERNAME}:${GITHUB_TOKEN}@github.com/BekaEn/Dolomed.git" .
+                        git clone "https://${GIT_USERNAME}:${GITHUB_TOKEN}@github.com/BekaEn/Levatus.git" .
                         
                         # Initialize Git LFS in the repository
                         git lfs install
@@ -59,21 +60,16 @@ pipeline {
                         # Pull LFS files
                         git lfs pull
                     '''
-                }
+                // }
             }
         }
 
         stage('Setup Node.js') {
             steps {
                 sh '''
-                    # Install Node.js using Homebrew
                     /opt/homebrew/bin/brew install node@${NODE_VERSION}
-                    
-                    # Add Node.js to PATH
                     echo 'export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"' >> ~/.bash_profile
                     source ~/.bash_profile
-                    
-                    # Verify Node.js installation
                     node --version
                     npm --version
                 '''
@@ -83,13 +79,8 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    # Ensure Node.js is in PATH
                     export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"
-                    
-                    # Install dependencies
                     npm install
-                    
-                    # Install Playwright browsers
                     npx playwright install --with-deps
                 '''
             }
@@ -98,49 +89,40 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
-                    # Ensure Node.js is in PATH
                     export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"
-                    
-                    # Create test results directory
-                    mkdir -p ${PLAYWRIGHT_TEST_RESULTS_DIR}
-                    
-                    # Run tests with detailed reporting
-                    npm run test -- --reporter=junit,line --output=${PLAYWRIGHT_TEST_RESULTS_DIR}/junit-results.xml
+                    mkdir -p ${ALLURE_RESULTS_DIR}
+                    npx playwright test --reporter=line,allure-playwright
                 '''
             }
             post {
                 always {
-                    junit "${PLAYWRIGHT_TEST_RESULTS_DIR}/junit-results.xml"
-                    archiveArtifacts artifacts: "${PLAYWRIGHT_TEST_RESULTS_DIR}/**/*"
-                    archiveArtifacts artifacts: "${PLAYWRIGHT_TEST_REPORT_DIR}/**/*"
-                }
-                success {
-                    echo 'All tests passed!'
-                }
-                failure {
-                    echo 'Some tests failed. Check the test results for details.'
-                    sh '''
-                        export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"
-                        echo "Failed tests:"
-                        cat ${PLAYWRIGHT_TEST_RESULTS_DIR}/junit-results.xml | grep "failure" || true
-                        echo "Generating detailed test report..."
-                        npm run test:report
-                    '''
+                    script {
+                       allure includeProperties: false, jdk: '', results: [[path: 'allure-results']]
+  
+                        
+                        // Create ZIP with all reports
+                        sh """
+                            mkdir -p ${PLAYWRIGHT_TEST_RESULTS_DIR}
+                            zip -r test-reports.zip \
+                                ${PLAYWRIGHT_TEST_REPORT_DIR}/ \
+                                ${PLAYWRIGHT_TEST_RESULTS_DIR}/ \
+                                ${ALLURE_RESULTS_DIR}/ || true
+                        """
+                    }
                 }
             }
         }
 
-        stage('Generate Report') {
+        stage('Generate Reports') {
             steps {
                 sh '''
-                    # Ensure Node.js is in PATH
                     export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"
-                    npm run test:report
+                    allure generate allure-results -o allure-report --clean
                 '''
             }
             post {
                 always {
-                    archiveArtifacts artifacts: "${PLAYWRIGHT_TEST_REPORT_DIR}/**/*"
+                    archiveArtifacts artifacts: "allure-report/**/*"
                 }
             }
         }

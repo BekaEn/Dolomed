@@ -1,5 +1,5 @@
 {
-  "name": "praxis-automation",
+  "name": "levatusautomation",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -8,21 +8,21 @@
     "report:open": "npx playwright show-report",
     "report:custom": "node -r ts-node/register src/utils/customReporter.ts",
     "open-report": "npx http-server test-results -o /custom-report.html --port 8080 --host localhost",
-    "test:failed": "node scripts/run-failed-tests.js",
-    "install:ci": "npm ci && npx playwright install --with-deps",
-    "test:ci": "playwright test --reporter=junit,html"
+    "test:allure": "playwright test --reporter=line,allure-playwright",
+    "allure:generate": "allure generate allure-results -o allure-report --clean",
+    "allure:serve": "allure serve allure-results"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "devDependencies": {
-    "@playwright/test": "^1.51.0",
+    "@playwright/test": "^1.51.1",
     "@types/node": "^22.13.9",
     "@types/pngjs": "^6.0.5",
+    "allure-playwright": "^3.2.1",
     "pixelmatch": "^7.1.0",
-    "pngjs": "^7.0.0",
-    "xml2js": "^0.6.2"
+    "pngjs": "^7.0.0"
   },
   "dependencies": {
     "canvas": "^3.1.0"
