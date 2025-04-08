@@ -81,6 +81,7 @@ pipeline {
                 sh '''
                     export PATH="/opt/homebrew/opt/node@${NODE_VERSION}/bin:$PATH"
                     npm install
+                    npm install allure-playwright --save-dev
                     npx playwright install --with-deps
                 '''
             }
