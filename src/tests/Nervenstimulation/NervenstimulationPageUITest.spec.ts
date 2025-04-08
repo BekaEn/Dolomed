@@ -33,7 +33,7 @@ test.describe('Nervenstimulation page visual comparison', () => {
                 });
                 
                 // Wait for critical elements to load (if needed)
-                await page.waitForSelector('.elementor-element[data-id="637a0f6a"]', { 
+                await page.waitForSelector('.elementor-element[data-id="d906bc5"]', { 
                     state: 'visible',
                     timeout: 10000
                 }).catch(error => {
@@ -103,7 +103,7 @@ test.describe('Nervenstimulation page visual comparison', () => {
                     await page.waitForSelector('.dropdownlang, .pix-wpml-header-btn, .wpml-ls', { timeout: 10000 });
                     
                     // Wait for hero section to be visible
-                    await page.waitForSelector('.elementor-element[data-id="637a0f6a"]', { state: 'visible', timeout: 10000 });
+                    await page.waitForSelector('.elementor-element[data-id="d906bc5"]', { state: 'visible', timeout: 10000 });
                 } catch (error) {
                     console.log(`Warning: Some elements not found, continuing test: ${error.message}`);
                 }
