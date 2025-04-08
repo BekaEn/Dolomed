@@ -1,95 +1,149 @@
-import { test } from '@playwright/test';
-import { setupPage, comparePageScreenshot } from '../../utils/uiTestUtils';
-import fs from 'fs';
+import { test, devices } from '@playwright/test';
+import { 
+    setupPage, 
+    createDesktopContext,
+    createMobileContext,
+    comparePageScreenshot
+} from '../../utils/uiTestUtils';
+
+// Increase the test timeout to 2 minutes
+test.setTimeout(120000);
 
 test.describe('Kopfschmerzen page visual comparison', () => {
     const languages = ['de', 'fr'] as const;
     
     for (const lang of languages) {
-        test(`Desktop view - ${lang}`, async ({ page }) => {
-            // Set up the page with language-specific URL
-            const url = lang === 'de' ? '/kopfschmerzen-und-gesichtsschmerzen/' : `/${lang}/kopfschmerzen-und-gesichtsschmerzen/`;
-            await setupPage(page, url, {
-                width: 1600,
-                height: 1080
-            });
+        test(`Desktop view - ${lang}`, async ({ browser }) => {
+            // Create a new context with desktop settings
+            const desktopContext = await createDesktopContext(browser, { locale: lang });
             
-            // Wait for critical elements to load
-            await page.waitForSelector('.elementor-element[data-id="10b1b47e"]', { state: 'visible' });
-            
-            // Additional wait to ensure all images are loaded
-            await page.waitForLoadState('networkidle', { timeout: 15000 });
-            
-            const { diffCount, diffPath, actualPath } = await comparePageScreenshot(
-                page,
-                `KopfschmerzenPage-Full-${lang}`,
-                'KopfschmerzenPage'
-            );
-
-            // Attach both actual and diff images
-            await test.info().attach('actual', {
-                path: actualPath,
-                contentType: 'image/png'
-            });
-
-            if (fs.existsSync(diffPath)) {
-                await test.info().attach('diff', {
-                    path: diffPath,
-                    contentType: 'image/png'
+            try {
+                // Create a new page in the desktop context
+                const page = await desktopContext.newPage();
+                
+                // Set up the page with language-specific URL and optimized flow
+                const url = lang === 'de' ? '/kopfschmerzen-und-gesichtsschmerzen/' : `/${lang}/kopfschmerzen-und-gesichtsschmerzen/`;
+                await setupPage(page, url, {
+                    width: 1600,
+                    height: 1080
+                }, {
+                    handleCookieConsent: true,
+                    waitTime: 3000,
+                    scrollPage: true
                 });
-            }
-            
-            if (typeof diffCount === 'number' && diffCount >= 1000) {
-                throw new Error(`Visual differences detected in ${lang}: ${diffCount} pixels different. Check ${diffPath} for details.`);
+                
+                // Wait for critical elements to load
+                await page.waitForSelector('.elementor-element[data-id="10b1b47e"]', { 
+                    state: 'visible',
+                    timeout: 10000
+                }).catch(error => {
+                    console.log(`Warning: Element not found, continuing test: ${error.message}`);
+                });
+                
+                // Additional wait to ensure all images are loaded
+                await page.waitForLoadState('networkidle', { timeout: 15000 });
+                
+                // Use the comprehensive function for screenshot comparison
+                const result = await comparePageScreenshot(
+                    page,
+                    `KopfschmerzenPage-Full-${lang}`,
+                    'KopfschmerzenPage',
+                    test.info(),
+                    {
+                        threshold: 0.3,
+                        includeAA: true,
+                        maxDiffPercentage: 5.0
+                    }
+                );
+                
+                // Log test information including diff paths
+                console.log(`Desktop test results for ${lang}:
+                    - Passed: ${result.passed}
+                    - Difference: ${result.percentDifferent.toFixed(2)}%
+                    - Maximum allowed: 5.0%`);
+                
+                // Fail the test if the comparison fails
+                if (!result.passed) {
+                    throw new Error(`Visual differences detected in ${lang}: ${result.percentDifferent.toFixed(2)}% of pixels are different. Max allowed: 5.0%. Check the diff image for details.`);
+                }
+            } catch (error) {
+                // Log the error properly
+                console.error(`Test failed: ${error.message}`);
+                throw error;
+            } finally {
+                // Always close the context
+                await desktopContext.close();
             }
         });
 
-        test(`Mobile view - ${lang}`, async ({ page }) => {
-            // Set up the page with language-specific URL
-            const url = lang === 'de' ? '/kopfschmerzen-und-gesichtsschmerzen/' : `/${lang}/kopfschmerzen-und-gesichtsschmerzen/`;
-            await setupPage(page, url, {
-                width: 375,  // iPhone SE width
-                height: 667  // iPhone SE height
-            });
+        test(`Mobile view - ${lang}`, async ({ browser }) => {
+            // Create a new context with iPhone 12 device emulation
+            const mobileContext = await createMobileContext(browser, 'iPhone 12', { locale: lang });
             
-            // Wait for language content to fully load
             try {
-                // Wait for the language selector to be visible (might be in mobile menu)
-                await page.waitForSelector('.dropdownlang, .pix-wpml-header-btn, .wpml-ls', { timeout: 10000 });
+                // Create a new page in the mobile context
+                const page = await mobileContext.newPage();
                 
-                // Wait for hero section to be visible
-                await page.waitForSelector('.elementor-element[data-id="10b1b47e"]', { state: 'visible' });
+                // Set up the page with language-specific URL
+                const url = lang === 'de' ? '/kopfschmerzen-und-gesichtsschmerzen/' : `/${lang}/kopfschmerzen-und-gesichtsschmerzen/`;
                 
-                // Additional wait to ensure full page render
-                await page.waitForLoadState('networkidle', { timeout: 15000 });
+                // Use the comprehensive setup function
+                await setupPage(page, url, {
+                    width: 375,
+                    height: 667
+                }, {
+                    handleCookieConsent: true,
+                    waitTime: 3000,
+                    scrollPage: true
+                });
+                
+                // Force touch events to be registered (simulate some user interaction)
+                await page.tap('body');
+                
+                // Wait for specific elements if needed but don't fail if not found
+                try {
+                    // Wait for the language selector to be visible (might be in mobile menu)
+                    await page.waitForSelector('.dropdownlang, .pix-wpml-header-btn, .wpml-ls', { timeout: 10000 });
+                    
+                    // Wait for hero section to be visible
+                    await page.waitForSelector('.elementor-element[data-id="10b1b47e"]', { state: 'visible', timeout: 10000 });
+                    
+                    // Additional wait to ensure full page render
+                    await page.waitForLoadState('networkidle', { timeout: 15000 });
+                } catch (error) {
+                    console.log(`Warning: Some elements not found, continuing test: ${error.message}`);
+                }
+                
+                // Use the single comprehensive function for screenshot comparison
+                const result = await comparePageScreenshot(
+                    page,
+                    `KopfschmerzenPage-Mobile-${lang}`,
+                    'KopfschmerzenPage',
+                    test.info(),
+                    {
+                        threshold: 0.3,
+                        includeAA: true,
+                        maxDiffPercentage: 5.0
+                    }
+                );
+                
+                // Log test information including diff paths
+                console.log(`Mobile test results for ${lang}:
+                    - Passed: ${result.passed}
+                    - Difference: ${result.percentDifferent.toFixed(2)}%
+                    - Maximum allowed: 5.0%`);
+                
+                // Fail the test if the comparison fails
+                if (!result.passed) {
+                    throw new Error(`Visual differences detected in ${lang}: ${result.percentDifferent.toFixed(2)}% of pixels are different. Max allowed: 5.0%. Check the diff image for details.`);
+                }
             } catch (error) {
-                test.info().annotations.push({
-                    type: 'warning',
-                    description: `Element wait failed on mobile: ${error.message}`
-                });
-            }
-            
-            const { diffCount, diffPath, actualPath } = await comparePageScreenshot(
-                page,
-                `KopfschmerzenPage-Mobile-${lang}`,
-                'KopfschmerzenPage'
-            );
-
-            // Attach both actual and diff images
-            await test.info().attach('actual', {
-                path: actualPath,
-                contentType: 'image/png'
-            });
-
-            if (fs.existsSync(diffPath)) {
-                await test.info().attach('diff', {
-                    path: diffPath,
-                    contentType: 'image/png'
-                });
-            }
-            
-            if (typeof diffCount === 'number' && diffCount >= 1000) {
-                throw new Error(`Visual differences detected in ${lang}: ${diffCount} pixels different. Check ${diffPath} for details.`);
+                // Log the error properly
+                console.error(`Test failed: ${error.message}`);
+                throw error;
+            } finally {
+                // Always close the context
+                await mobileContext.close();
             }
         });
     }

@@ -47,8 +47,8 @@ test.describe('Nervenstimulation page visual comparison', () => {
                     'NervenstimulationPage',
                     test.info(),
                     {
-                        threshold: 0.3,
-                        includeAA: true,
+                        threshold: 0.05,
+                        includeAA: false,
                         maxDiffPercentage: 5.0
                     }
                 );
@@ -115,8 +115,8 @@ test.describe('Nervenstimulation page visual comparison', () => {
                     'NervenstimulationPage',
                     test.info(),
                     {
-                        threshold: 0.3,
-                        includeAA: true,
+                        threshold: 0.05,
+                        includeAA: false,
                         maxDiffPercentage: 5.0
                     }
                 );

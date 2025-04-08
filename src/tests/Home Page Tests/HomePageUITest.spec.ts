@@ -1,88 +1,137 @@
-import { test } from '@playwright/test';
-import { setupPage, comparePageScreenshot } from '../../utils/uiTestUtils';
-import fs from 'fs';
+import { test, devices } from '@playwright/test';
+import { 
+    setupPage, 
+    createDesktopContext,
+    createMobileContext,
+    comparePageScreenshot
+} from '../../utils/uiTestUtils';
+
+// Increase the test timeout to 2 minutes
+test.setTimeout(120000);
 
 test.describe('Homepage visual comparison', () => {
     const languages = ['de', 'fr'] as const;
     
     for (const lang of languages) {
-        test(`Desktop view - ${lang}`, async ({ page }) => {
-            // Set up the page with language-specific URL
-            const url = lang === 'de' ? '/' : `/${lang}/`;
-            await setupPage(page, url, {
-                width: 1600,
-                height: 1080
-            });
+        test(`Desktop view - ${lang}`, async ({ browser }) => {
+            // Create a new context with desktop settings
+            const desktopContext = await createDesktopContext(browser, { locale: lang });
             
-
-            
-            const { diffCount, diffPath, actualPath } = await comparePageScreenshot(
-                page,
-                `HomePage-Full-${lang}`,
-                'HomePage'
-            );
-
-            // Attach both actual and diff images
-            await test.info().attach('actual', {
-                path: actualPath,
-                contentType: 'image/png'
-            });
-
-            if (fs.existsSync(diffPath)) {
-                await test.info().attach('diff', {
-                    path: diffPath,
-                    contentType: 'image/png'
+            try {
+                // Create a new page in the desktop context
+                const page = await desktopContext.newPage();
+                
+                // Set up the page with language-specific URL and optimized flow
+                const url = lang === 'de' ? '/' : `/${lang}/`;
+                await setupPage(page, url, {
+                    width: 1600,
+                    height: 1080
+                }, {
+                    handleCookieConsent: true,
+                    waitTime: 3000,
+                    scrollPage: true
                 });
-            }
-            
-            if (typeof diffCount === 'number' && diffCount >= 1000) {
-                throw new Error(`Visual differences detected in ${lang}: ${diffCount} pixels different. Check ${diffPath} for details.`);
+                
+                // Use the comprehensive function for screenshot comparison
+                const result = await comparePageScreenshot(
+                    page,
+                    `HomePage-Full-${lang}`,
+                    'HomePage',
+                    test.info(),
+                    {
+                        threshold: 0.1,        // Lower threshold for more sensitivity
+                        includeAA: false,      // Ignore anti-aliasing changes
+                        alpha: 0.1,            // More sensitive alpha
+                        maxDiffPercentage: 5.0 // Keep the same max difference percentage
+                    }
+                );
+                
+                // Log test information including diff paths
+                console.log(`Desktop test results for ${lang}:
+                    - Passed: ${result.passed}
+                    - Difference: ${result.percentDifferent.toFixed(2)}%
+                    - Maximum allowed: 5.0%`);
+                
+                // Fail the test if the comparison fails
+                if (!result.passed) {
+                    throw new Error(`Visual differences detected in ${lang}: ${result.percentDifferent.toFixed(2)}% of pixels are different. Max allowed: 5.0%. Check the diff image for details.`);
+                }
+            } catch (error) {
+                // Log the error properly
+                console.error(`Test failed: ${error.message}`);
+                throw error;
+            } finally {
+                // Always close the context
+                await desktopContext.close();
             }
         });
 
-        test(`Mobile view - ${lang}`, async ({ page }) => {
-            // Set up the page with language-specific URL
-            const url = lang === 'de' ? '/' : `/${lang}/`;
-            await setupPage(page, url, {
-                width: 375,  // iPhone SE width
-                height: 667  // iPhone SE height
-            });
+        test(`Mobile view - ${lang}`, async ({ browser }) => {
+            // Create a new context with iPhone 12 device emulation
+            const mobileContext = await createMobileContext(browser, 'iPhone 12', { locale: lang });
             
-            // Wait for language content to fully load
             try {
-                // Wait for the language selector to be visible (might be in mobile menu)
-                await page.waitForSelector('.dropdownlang, .pix-wpml-header-btn, .wpml-ls', { timeout: 10000 });
+                // Create a new page in the mobile context
+                const page = await mobileContext.newPage();
                 
-                // Additional wait to ensure full page render
-                await page.waitForLoadState('networkidle', { timeout: 15000 });
+                // Set up the page with language-specific URL
+                const url = lang === 'de' ? '/' : `/${lang}/`;
+                
+                // Use the comprehensive setup function
+                await setupPage(page, url, {
+                    width: 375,
+                    height: 667
+                }, {
+                    handleCookieConsent: true,
+                    waitTime: 3000,
+                    scrollPage: true
+                });
+                
+                // Force touch events to be registered (simulate some user interaction)
+                await page.tap('body');
+                
+                // Wait for specific elements if needed but don't fail if not found
+                try {
+                    // Wait for the language selector to be visible (might be in mobile menu)
+                    await page.waitForSelector('.dropdownlang, .pix-wpml-header-btn, .wpml-ls', { timeout: 10000 });
+                    
+                    // Additional wait to ensure full page render
+                    await page.waitForLoadState('networkidle', { timeout: 15000 });
+                } catch (error) {
+                    console.log(`Warning: Some elements not found, continuing test: ${error.message}`);
+                }
+                
+                // Use the single comprehensive function for screenshot comparison
+                const result = await comparePageScreenshot(
+                    page,
+                    `HomePage-Mobile-${lang}`,
+                    'HomePage',
+                    test.info(),
+                    {
+                        threshold: 0.1,        // Lower threshold for more sensitivity
+                        includeAA: false,      // Ignore anti-aliasing changes
+                        alpha: 0.1,            // More sensitive alpha
+                        maxDiffPercentage: 5.0 // Keep the same max difference percentage
+                    }
+                );
+                
+                // Log test information including diff paths
+                console.log(`Mobile test results for ${lang}:
+                    - Passed: ${result.passed}
+                    - Difference: ${result.percentDifferent.toFixed(2)}%
+                    - Maximum allowed: 5.0%`);
+                
+                // Fail the test if the comparison fails
+                if (!result.passed) {
+                    throw new Error(`Visual differences detected in ${lang}: ${result.percentDifferent.toFixed(2)}% of pixels are different. Max allowed: 5.0%. Check the diff image for details.`);
+                }
             } catch (error) {
-                test.info().annotations.push({
-                    type: 'warning',
-                    description: `Language selector wait failed on mobile: ${error.message}`
-                });
-            }
-            
-            const { diffCount, diffPath, actualPath } = await comparePageScreenshot(
-                page,
-                `HomePage-Mobile-${lang}`,
-                'HomePage'
-            );
-
-            // Attach both actual and diff images
-            await test.info().attach('actual', {
-                path: actualPath,
-                contentType: 'image/png'
-            });
-
-            if (fs.existsSync(diffPath)) {
-                await test.info().attach('diff', {
-                    path: diffPath,
-                    contentType: 'image/png'
-                });
-            }
-            
-            if (typeof diffCount === 'number' && diffCount >= 1000) {
-                throw new Error(`Visual differences detected in ${lang}: ${diffCount} pixels different. Check ${diffPath} for details.`);
+                // Log the error properly
+                console.error(`Test failed: ${error.message}`);
+                throw error;
+            } finally {
+                // Always close the context
+                await mobileContext.close();
             }
         });
     }

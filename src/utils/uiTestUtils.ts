@@ -113,7 +113,7 @@ export async function handleCookieConsent(page: Page): Promise<boolean> {
             await page.waitForTimeout(2000);
             
             console.log('Cookie consent handling completed');
-        return true;
+            return true;
         } else {
             console.log('No cookie consent banner found or it was already handled');
             return false;
@@ -574,13 +574,12 @@ export async function createMobileContext(
         hasTouch: true
     });
 }
-
 /**
  * Comprehensive function to handle visual comparison of a page
  */
 export async function comparePageScreenshot(
-    page: Page, 
-    screenshotName: string, 
+    page: Page,
+    screenshotName: string,
     baseDir: string,
     testInfo: any,
     options: Partial<ComparisonOptions> = {}
@@ -680,4 +679,5 @@ function createEmptyDiffImage(diffPath: string, actualPath: string): void {
     } catch (error) {
         console.error('Error creating empty diff image:', error);
     }
-} 
+}
+
