@@ -1,5 +1,5 @@
 {
-  "name": "levatusautomation",
+  "name": "dolomed-automation",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -8,21 +8,19 @@
     "report:open": "npx playwright show-report",
     "report:custom": "node -r ts-node/register src/utils/customReporter.ts",
     "open-report": "npx http-server test-results -o /custom-report.html --port 8080 --host localhost",
-    "test:allure": "playwright test --reporter=line,allure-playwright",
-    "allure:generate": "allure generate allure-results -o allure-report --clean",
-    "allure:serve": "allure serve allure-results"
+    "test:failed": "playwright test --config=src/utils/playwright-rerun.config.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "devDependencies": {
-    "@playwright/test": "^1.51.1",
+    "@playwright/test": "^1.51.0",
     "@types/node": "^22.13.9",
     "@types/pngjs": "^6.0.5",
-    "allure-playwright": "^3.2.1",
     "pixelmatch": "^7.1.0",
-    "pngjs": "^7.0.0"
+    "pngjs": "^7.0.0",
+    "ts-node": "^10.9.2"
   },
   "dependencies": {
     "canvas": "^3.1.0"
