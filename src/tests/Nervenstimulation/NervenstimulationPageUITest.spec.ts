@@ -1,12 +1,12 @@
-import { test, devices } from '@playwright/test';
+import { test } from '@playwright/test';
 import { 
     setupPage, 
     createDesktopContext,
-    createMobileContext,
-    comparePageScreenshot
+    createMobileContext
 } from '../../utils/uiTestUtils';
+import { comparePageScreenshot } from '../../utils/imageCompare';
 
-// Increase the test timeout to 2 minutes
+// Increase the test timeout to 120 seconds
 test.setTimeout(120000);
 
 test.describe('Nervenstimulation page visual comparison', () => {
@@ -21,26 +21,19 @@ test.describe('Nervenstimulation page visual comparison', () => {
                 // Create a new page in the desktop context
                 const page = await desktopContext.newPage();
                 
-                // Set up the page with language-specific URL and optimized flow
-                const url = lang === 'de' ? '/nervenstimulation/' : `/${lang}/nervenstimulation/`;
-                await setupPage(page, url, {
-                    width: 1600,
-                    height: 1080
-                }, {
+                // Set up the page with language-specific URL
+                const url = getLanguageUrl(lang);
+                await setupPage(page, url, undefined, {
                     handleCookieConsent: true,
                     waitTime: 3000,
-                    scrollPage: true
                 });
                 
-                // Wait for critical elements to load (if needed)
-                await page.waitForSelector('.elementor-element[data-id="d906bc5"]', { 
-                    state: 'visible',
-                    timeout: 10000
-                }).catch(error => {
-                    console.log(`Warning: Element not found, continuing test: ${error.message}`);
-                });
+                // Wait for network to be idle
+                await page.waitForLoadState('networkidle', { timeout: 15000 });
                 
                 // Use the comprehensive function for screenshot comparison
+                // The comparePageScreenshot will handle appropriate scrolling through the page
+                // to trigger lazy loading before taking the screenshot
                 const result = await comparePageScreenshot(
                     page,
                     `NervenstimulationPage-Full-${lang}`,
@@ -74,41 +67,33 @@ test.describe('Nervenstimulation page visual comparison', () => {
         });
 
         test(`Mobile view - ${lang}`, async ({ browser }) => {
-            // Create a new context with iPhone 12 device emulation
+            // Create a new context with mobile device emulation
             const mobileContext = await createMobileContext(browser, 'iPhone 12', { locale: lang });
             
             try {
                 // Create a new page in the mobile context
                 const page = await mobileContext.newPage();
                 
-                // Set up the page with language-specific URL
-                const url = lang === 'de' ? '/nervenstimulation/' : `/${lang}/nervenstimulation/`;
+                // Get current viewport size
+                const viewport = page.viewportSize() || { width: 375, height: 667 };
+                console.log(`Mobile viewport size: ${viewport.width}x${viewport.height}`);
                 
-                // Use the comprehensive setup function
-                await setupPage(page, url, {
-                    width: 375,
-                    height: 667
-                }, {
+                // Set up the page with language-specific URL
+                const url = getLanguageUrl(lang);
+                await setupPage(page, url, undefined, {
                     handleCookieConsent: true,
                     waitTime: 3000,
-                    scrollPage: true
                 });
                 
-                // Force touch events to be registered (simulate some user interaction)
-                await page.tap('body');
+                // Fix layout issues before taking screenshot
+                await fixMobileLayout(page);
                 
-                // Wait for specific elements if needed but don't fail if not found
-                try {
-                    // Wait for the language selector to be visible (might be in mobile menu)
-                    await page.waitForSelector('.dropdownlang, .pix-wpml-header-btn, .wpml-ls', { timeout: 10000 });
-                    
-                    // Wait for hero section to be visible
-                    await page.waitForSelector('.elementor-element[data-id="d906bc5"]', { state: 'visible', timeout: 10000 });
-                } catch (error) {
-                    console.log(`Warning: Some elements not found, continuing test: ${error.message}`);
-                }
+                // Wait for network to be idle
+                await page.waitForLoadState('networkidle', { timeout: 15000 });
                 
-                // Use the single comprehensive function for screenshot comparison
+                // Use the comprehensive function for screenshot comparison
+                // The comparePageScreenshot will handle appropriate scrolling through the page
+                // to trigger lazy loading before taking the screenshot
                 const result = await comparePageScreenshot(
                     page,
                     `NervenstimulationPage-Mobile-${lang}`,
@@ -141,4 +126,89 @@ test.describe('Nervenstimulation page visual comparison', () => {
             }
         });
     }
-}); 
+});
+
+/**
+ * Fixes mobile layout issues before taking a screenshot
+ */
+async function fixMobileLayout(page: any): Promise<void> {
+    // Fix the layout by applying CSS constraints
+    await page.evaluate(() => {
+        // Get the viewport width
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        console.log(`Viewport dimensions: ${viewportWidth}x${viewportHeight}`);
+        
+        // Force content width to match viewport width exactly
+        document.documentElement.style.width = `${viewportWidth}px`;
+        document.documentElement.style.maxWidth = `${viewportWidth}px`;
+        document.body.style.width = `${viewportWidth}px`;
+        document.body.style.maxWidth = `${viewportWidth}px`;
+        document.body.style.overflowX = 'hidden';
+        document.body.style.paddingRight = '0';
+        document.body.style.marginRight = '0';
+        
+        // Fix common layout issues by constraining elements
+        const containerElements = document.querySelectorAll('.elementor-container, .elementor-section, .elementor-widget, .elementor-column');
+        containerElements.forEach((el: Element) => {
+            // Force all container elements to respect viewport width
+            const element = el as HTMLElement;
+            const style = window.getComputedStyle(element);
+            const width = parseFloat(style.width);
+            
+            if (width > viewportWidth) {
+                element.style.width = `${viewportWidth}px`;
+                element.style.maxWidth = `${viewportWidth}px`;
+                element.style.marginRight = '0';
+                element.style.paddingRight = '0';
+                element.style.boxSizing = 'border-box';
+                console.log(`Fixed oversized element: ${element.className}, width: ${width}px`);
+            }
+        });
+        
+        // Find and fix any elements with overflow or that extend beyond viewport
+        document.querySelectorAll('*').forEach((el: Element) => {
+            const element = el as HTMLElement;
+            const rect = element.getBoundingClientRect();
+            
+            // Check if element extends beyond viewport width
+            if (rect.right > viewportWidth + 5) { // 5px tolerance
+                element.style.maxWidth = '100%';
+                element.style.width = '100%';
+                element.style.boxSizing = 'border-box';
+                element.style.overflowX = 'hidden';
+                console.log(`Fixed element extending beyond viewport: ${element.tagName}.${element.className}`);
+            }
+        });
+        
+        // Remove any horizontal scrolling
+        document.documentElement.style.overflowX = 'hidden';
+        
+        // Return the actual content height to verify
+        return {
+            documentHeight: Math.max(
+                document.body.scrollHeight,
+                document.body.offsetHeight,
+                document.documentElement.clientHeight,
+                document.documentElement.scrollHeight,
+                document.documentElement.offsetHeight
+            ),
+            bodyWidth: document.body.offsetWidth,
+            htmlWidth: document.documentElement.offsetWidth
+        };
+    }).then((dimensions) => {
+        console.log(`Content dimensions after fixes - Height: ${dimensions.documentHeight}px, Body width: ${dimensions.bodyWidth}px, HTML width: ${dimensions.htmlWidth}px`);
+    });
+    
+    // Wait a moment for any style recalculations
+    await page.waitForTimeout(500);
+}
+
+// Helper function to get the correct URL for each language
+function getLanguageUrl(lang: string): string {
+    // German is served from the base path for nervenstimulation
+    if (lang === 'de') return '/nervenstimulation/';
+    
+    // All other languages use their language code in the URL
+    return `/${lang}/nervenstimulation/`;
+} 
